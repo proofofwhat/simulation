@@ -141,13 +141,39 @@ function rate(h: number): string {
   return `${v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)} ${UNITS[i]}`;
 }
 
+const DAY = 86_400;
+/* The Julian year the chart's arithmetic is not sensitive to and a reader
+   would assume anyway. Nothing here turns on the quarter day. */
+const YEAR = 365.25 * DAY;
+
+/**
+ * A long duration as a magnitude rather than as a clock.
+ *
+ * `h:mm:ss` stops carrying information somewhere past a day. With one CPU
+ * miner at the pow limit the expected interval is 10,284,327,343:17:48, which
+ * no reader can take a size from — and taking a size from it is the whole
+ * reason the figure is on the page.
+ */
+function span(n: number, unit: string): string {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} billion ${unit}s`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} million ${unit}s`;
+  const v = n >= 10 ? Math.round(n) : Number(n.toFixed(1));
+  return `${count(v)} ${v === 1 ? unit : `${unit}s`}`;
+}
+
 /* Signed, because the x axis spans a fixed window that can begin before the
    run did. The window's start is then negative simulated time, and saying so
-   is the honest reading of a chart whose left half is empty. */
+   is the honest reading of a chart whose left half is empty.
+
+   A clock below two days, days and then years above it. Two days rather than
+   one because the chart's widest window is 48 hours, so everything it plots
+   keeps the reading the axis under it uses. */
 function clock(s: number): string {
   if (!isFinite(s)) return "—";
   const sign = s < 0 ? "−" : "";
   const sec = Math.abs(Math.round(s));
+  if (sec >= YEAR) return `${sign}${span(sec / YEAR, "year")}`;
+  if (sec >= 2 * DAY) return `${sign}${span(sec / DAY, "day")}`;
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const r = sec % 60;
