@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proof of What? — difficulty simulation</title>
+<style>
+  :root {
+    --bg: #0b0d10;  --panel: #12151a;  --line: #222830;
+    --ink: #e8ecf1;  --dim: #8b949e;
+    --blue: #4a7dff;  --amber: #f0a132;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--ui); font-size: 15px; line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 1.15rem; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--dim); margin: 0 0 20px; font-size: .9rem; }
+
+  .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  canvas { width: 100%; height: 260px; display: block; }
+  .key { display: flex; gap: 18px; margin: 8px 2px 0; font-size: .8rem; color: var(--dim); }
+  .key b { font-weight: 600; }
+  .swatch { display: inline-block; width: 10px; height: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+             color: var(--dim); margin: 0 0 12px; font-weight: 600; }
+
+  .miner { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .miner + .miner { border-top: 1px solid var(--line); }
+  .miner .name { flex: 1; }
+  .miner .name small { display: block; color: var(--dim); font-size: .78rem; }
+  .miner .n { font-family: var(--mono); font-size: 1.1rem; min-width: 5.5ch; text-align: right; }
+  button {
+    font: inherit; font-family: var(--mono); color: var(--ink);
+    background: #1a1f27; border: 1px solid var(--line); border-radius: 6px;
+    width: 32px; height: 32px; cursor: pointer; line-height: 1;
+  }
+  button:hover { background: #222a35; border-color: #39414d; }
+  button.wide { width: auto; padding: 0 14px; }
+
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+  dt { color: var(--dim); font-size: .85rem; }
+  dd { margin: 0; font-family: var(--mono); text-align: right; }
+  dd small { color: var(--dim); font-family: var(--ui); font-size: .75rem; }
+
+  .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+         margin: 10px 2px 0; font-size: .82rem; color: var(--dim); }
+  .bar input[type=range] { flex: 1; min-width: 150px; max-width: 320px; accent-color: var(--blue); }
+  .bar .n { font-family: var(--mono); min-width: 6ch; color: var(--ink); }
+  .bar .scale { margin-left: auto; }
+  .bar select { font: inherit; font-size: .82rem; color: var(--ink);
+                background: #1a1f27; border: 1px solid var(--line);
+                border-radius: 6px; padding: 4px 6px; }
+  .bar .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+              background: #cfe0ff; margin-right: 6px; vertical-align: middle; }
+  .note { color: var(--dim); font-size: .82rem; margin: 14px 2px 0; }
+  .note code { font-family: var(--mono); color: var(--ink); }
+  a { color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- A module that throws leaves this page looking finished and doing
+       nothing: the layout is static HTML, so every label still renders and
+       only the numbers stay blank. Any error is therefore reported here, in
+       the page, rather than only in a console nobody has open. -->
+  <div id="oops" hidden style="background:#2a1416;border:1px solid #5c2328;
+       border-radius:8px;padding:12px 14px;margin:0 0 16px;font-family:var(--mono);
+       font-size:.82rem;white-space:pre-wrap;color:#ffb4b4"></div>
+
+  <h1>Hashpower / Difficulty Simulation</h1>
+  <p class="sub">
+    Proof of What?'s difficulty rule, run against a fleet you control (simulation)
+  </p>
+
+  <div class="chart"><canvas id="chart"></canvas></div>
+
+  <!-- Controls belong with the thing they control: pausing is something you do
+       while watching the chart, not after scrolling past it. -->
+  <div class="bar">
+    <button class="wide" id="pause">Pause</button>
+    <button class="wide" id="reset">Reset</button>
+    <label for="speed">Speed</label>
+    <input type="range" id="speed" min="60" max="3600" step="60" value="600">
+    <span class="n" id="speed-label"></span>
+    <label for="window">Window</label>
+    <select id="window">
+      <option value="1800">30 min</option>
+      <option value="7200">2 hours</option>
+      <option value="21600" selected>6 hours</option>
+      <option value="86400">24 hours</option>
+      <option value="172800">48 hours</option>
+    </select>
+    <span class="scale"><i class="dot"></i>block &nbsp;·&nbsp; one log scale: hashpower drawn as the difficulty it implies</span>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h2>Your fleet</h2>
+
+      <div class="miner">
+        <div class="name">
+          Software miners
+          <small>the node's CPU miner, 3 workers — <span id="rate-software"></span> each</small>
+        </div>
+        <button id="software-minus" title="Remove one. Shift-click for 100.">−</button>
+        <span class="n" id="software-count">1</span>
+        <button id="software-plus" title="Add one. Shift-click for 100.">+</button>
+      </div>
+
+      <div class="miner">
+        <div class="name">
+          Bitaxe ASICs
+          <small>Bitaxe Gamma 601 — <span id="rate-bitaxe"></span> each</small>
+        </div>
+        <button id="bitaxe-minus">−</button>
+        <span class="n" id="bitaxe-count">0</span>
+        <button id="bitaxe-plus">+</button>
+      </div>
+
+      <div class="miner">
+        <div class="name">
+          Warehouses
+          <small>10,000 ASICs at 200 TH/s — <span id="rate-warehouse"></span> each</small>
+        </div>
+        <button id="warehouse-minus">−</button>
+        <span class="n" id="warehouse-count">0</span>
+        <button id="warehouse-plus">+</button>
+      </div>
+
+      <dl style="margin-top:14px">
+        <dt>Total hashpower</dt><dd id="fleet-hashrate">—</dd>
+        <dt>Software share</dt><dd id="share">—</dd>
+      </dl>
+
+      <p class="note">
+        One Bitaxe is about <b id="ratio">—</b> software miners, and one
+        warehouse is about <b id="ratio-warehouse">—</b> Bitaxes. That is why
+        each counter stops mattering the moment the next one appears.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>The chain</h2>
+      <dl>
+        <dt>Simulated time</dt><dd id="time">—</dd>
+        <dt>Block height</dt><dd id="height">0</dd>
+        <dt>Difficulty</dt><dd id="difficulty">—</dd>
+        <dt>Expected interval <small>(based on current hashpower)</small></dt><dd id="expected">—</dd>
+        <dt>Overdue by</dt><dd id="overdue">—</dd>
+        <!-- The value gets its own span. Writing textContent straight onto
+             the <dd> would wipe its children, taking `mean-note` with it, and
+             the next line to look for it would throw inside the animation
+             frame — killing the loop and freezing the page. -->
+        <dt>Mean interval</dt><dd><span id="mean-interval">—</span><br><small id="mean-note"></small></dd>
+        <dt>Window interval</dt><dd><span id="window-interval">—</span><br><small id="window-note"></small></dd>
+        <dt>Orphaned</dt><dd id="orphans">0</dd>
+      </dl>
+      <p class="note">
+        The target block interval is 10 minutes.
+      </p>
+    </div>
+  </div>
+
+</div>
+<script>
+  /* Registered before the module loads, so a failure to even parse or fetch
+     app.ts is reported rather than silent. */
+  function showError(what, detail) {
+    var box = document.getElementById("oops");
+    box.hidden = false;
+    box.textContent = what + "\n\n" + detail +
+      "\n\nThe page is served by `npm run browser`. If the port was already in use " +
+      "that command exits instead of starting, and nothing here will load.";
+  }
+  window.addEventListener("error", function (e) {
+    showError("The simulation failed to start.", (e.error && e.error.stack) || e.message || String(e));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    showError("The simulation failed to start.", String(e.reason));
+  });
+</script>
+<script type="module">
+  /* Imported dynamically so a FAILED IMPORT is catchable. A plain
+     `<script type="module" src=...>` that 404s or throws at top level does not
+     reach window.onerror: the page just sits there looking complete, with no
+     indication anywhere that the module never ran. */
+  try {
+    await import("./app.ts");
+  } catch (e) {
+    showError("The simulation failed to start.", (e && e.stack) || String(e));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+Proof of What? (WHAT) — the difficulty-adjustment simulation
+Copyright 2026 proofofwhat
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+`src/what/difficulty.ts` and `src/what/parameters.ts` are copied verbatim from
+the Proof of What? node software and are not maintained here. They are the same
+code the Stratum server runs, ported from `lib/what/difficulty.ak` and
+`lib/what/parameters.ak` in:
+
+  - proofofwhat/contracts (https://github.com/proofofwhat/contracts), Apache-2.0
+
+Not file for file: a few constants in `parameters.ts` live elsewhere in that
+repository or nowhere in it, and each says so where it is defined.
+
+`test/parity-vectors.json` is generated from `lib/what/parity.ak` in the same
+repository, and records the revision it was taken from. `npm run parity` runs
+it against the vendored rule.
+
+The validator in that repository is where the difficulty rule is specified and
+enforced. Everything else in this repository models a chain around it.
+
+`README.md` is documentation rather than code and carries the same licence as
+the rest of this repository.

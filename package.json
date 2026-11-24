@@ -1,0 +1,23 @@
+{
+  "name": "simulation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Difficulty-adjustment simulation for Proof of What? (WHAT)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/proofofwhat/simulation.git"
+  },
+  "scripts": {
+    "sim": "tsx src/main.ts",
+    "browser": "node tools/browser.mjs",
+    "parity": "tsx tools/parity.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  }
+}
